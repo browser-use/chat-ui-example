@@ -2,7 +2,7 @@
 
 A chat interface for [Browser Use](https://browser-use.com) that lets you give tasks to an AI agent that can browse the web in real time. Built with Next.js 15, React 19, and the Browser Use SDK.
 
-![Chat UI](https://browser-use.com/images/chat-ui-preview.png)
+![Chat UI](public/chat-ui-preview.png)
 
 ## Quick Start
 
