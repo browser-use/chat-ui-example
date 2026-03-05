@@ -47,10 +47,10 @@ export default function HomePage() {
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-8">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-semibold text-zinc-100">
+          <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">
             What should the agent do?
           </h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-zinc-500 dark:text-zinc-500">
             It can browse the web, interact with pages, and report back.
           </p>
         </div>
@@ -59,16 +59,16 @@ export default function HomePage() {
           <ChatInput
             onSend={handleSend}
             disabled={isCreating}
-            placeholder="Describe a task…"
+            placeholder="Describe a task\u2026"
             footer={<SettingsBar />}
           />
           {isCreating && (
-            <p className="text-sm text-zinc-500 text-center mt-2">
-              Starting session…
+            <p className="text-sm text-zinc-500 dark:text-zinc-500 text-center mt-2">
+              Starting session\u2026
             </p>
           )}
           {error && (
-            <p className="text-sm text-red-400 text-center mt-2 max-w-lg mx-auto break-all">
+            <p className="text-sm text-red-500 dark:text-red-400 text-center mt-2 max-w-lg mx-auto break-all">
               {error}
             </p>
           )}
@@ -80,7 +80,7 @@ export default function HomePage() {
               key={s}
               onClick={() => handleSend(s)}
               disabled={isCreating}
-              className="px-3 py-1.5 text-[13px] text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-[13px] text-zinc-500 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-full hover:bg-zinc-300 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:opacity-50"
             >
               {s}
             </button>
