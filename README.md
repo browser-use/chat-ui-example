@@ -4,6 +4,8 @@ A chat interface for [Browser Use](https://browser-use.com) that lets you give t
 
 ![Chat UI](public/chat-ui-preview.png)
 
+![Session View](public/chat-ui-session.png)
+
 ## Quick Start
 
 ### 1. Get a Browser Use API Key
