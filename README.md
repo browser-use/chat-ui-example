@@ -1,4 +1,4 @@
-# Browser Use Chat UI
+# Browser Use Chat UI Example
 
 A chat interface for [Browser Use](https://browser-use.com) that lets you give tasks to an AI agent that can browse the web in real time. Built with Next.js 15, React 19, and the Browser Use SDK.
 
