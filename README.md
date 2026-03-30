@@ -2,7 +2,7 @@
 
 A chat interface for [Browser Use](https://browser-use.com) that lets you give tasks to an AI agent that can browse the web in real time. Built with Next.js 15, React 19, and the Browser Use SDK.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbrowser-use%2Fchat-ui-example&env=NEXT_PUBLIC_BROWSER_USE_API_KEY&envDescription=Your%20Browser%20Use%20API%20key&envLink=https%3A%2F%2Fcloud.browser-use.com&project-name=browser-use-chat-ui&repository-name=browser-use-chat-ui)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbrowser-use%2Fchat-ui-example&env=BROWSER_USE_API_KEY&envDescription=Your%20Browser%20Use%20API%20key%20(server-only)&envLink=https%3A%2F%2Fcloud.browser-use.com&project-name=browser-use-chat-ui&repository-name=browser-use-chat-ui)
 
 ![Chat UI](public/chat-ui-preview.png)
 
@@ -31,7 +31,7 @@ cp .env.example .env.local
 Edit `.env.local` and add your API key:
 
 ```
-NEXT_PUBLIC_BROWSER_USE_API_KEY=your-api-key-here
+BROWSER_USE_API_KEY=your-api-key-here
 ```
 
 ### 4. Run
@@ -76,10 +76,11 @@ npm install browser-use-sdk
 ### 2. Initialize the client
 
 ```typescript
+// src/lib/api.ts — server-only, never imported in client components
 import { BrowserUse } from "browser-use-sdk/v3";
 
 const client = new BrowserUse({
-  apiKey: process.env.NEXT_PUBLIC_BROWSER_USE_API_KEY,
+  apiKey: process.env.BROWSER_USE_API_KEY,
 });
 ```
 

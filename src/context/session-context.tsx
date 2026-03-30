@@ -10,14 +10,20 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { client } from "@/lib/api";
-import * as api from "@/lib/api";
+import { stopTask as stopTaskAction, waitForRecording } from "@/lib/actions";
 import { convertMessages, groupIntoTurns } from "@/lib/message-converter";
-import type { UIMessage, ConversationTurn, SessionResponse, MessageResponse } from "@/lib/types";
+import type { UIMessage, ConversationTurn, MessageResponse } from "@/lib/types";
+
+interface SessionState {
+  id: string;
+  liveUrl?: string | null;
+  status: string;
+  output?: unknown;
+}
 
 interface SessionContextType {
   sessionId: string;
-  session: SessionResponse | null;
+  session: SessionState | null;
   messages: UIMessage[];
   turns: ConversationTurn[];
   isLoading: boolean;
@@ -31,7 +37,6 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-// Session is done forever — no more tasks possible
 const TERMINAL = new Set(["stopped", "error", "timed_out"]);
 
 export function SessionProvider({
@@ -46,8 +51,8 @@ export function SessionProvider({
   children: ReactNode;
 }) {
   const [rawMessages, setRawMessages] = useState<MessageResponse[]>([]);
-  const [session, setSession] = useState<SessionResponse | null>(
-    initialLiveUrl ? { id: sessionId, liveUrl: initialLiveUrl, status: "created" } as SessionResponse : null,
+  const [session, setSession] = useState<SessionState | null>(
+    initialLiveUrl ? { id: sessionId, liveUrl: initialLiveUrl, status: "created" } : null,
   );
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,26 +63,47 @@ export function SessionProvider({
   const isTerminal = !!session && TERMINAL.has(session.status);
   const isBusy = session?.status === "running";
 
-  // Stream messages using for-await on client.run()
+  // Stream messages from the SSE route handler
   const streamTask = useCallback(
     async (task: string) => {
       setIsLoading(false);
-      const run = client.run(task, { sessionId });
-
-      // Update status to running immediately
       setSession((prev) => prev ? { ...prev, status: "running" } : prev);
 
-      for await (const msg of run) {
-        setRawMessages((prev) => {
-          // Deduplicate by id
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      }
+      const res = await fetch(`/api/stream/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task }),
+      });
 
-      // Iterator done — session reached terminal state
-      if (run.result) {
-        setSession(run.result as unknown as SessionResponse);
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = JSON.parse(line.slice(6));
+
+          if (json.__done) {
+            const { __done, ...result } = json;
+            setSession(result as SessionState);
+          } else if (json.__error) {
+            console.error("Stream error:", json.message);
+          } else {
+            const msg = json as MessageResponse;
+            setRawMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+          }
+        }
       }
     },
     [sessionId],
@@ -98,7 +124,7 @@ export function SessionProvider({
       setIsSending(true);
 
       // Optimistic user message
-      const tempMsg: MessageResponse = {
+      const tempMsg = {
         id: `opt-${Date.now()}`,
         sessionId,
         role: "user",
@@ -112,7 +138,6 @@ export function SessionProvider({
         await streamTask(task);
       } catch (err) {
         console.error("Failed to send task:", err);
-        // Remove optimistic message on failure
         setRawMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
       } finally {
         sendingRef.current = false;
@@ -137,7 +162,7 @@ export function SessionProvider({
     if (!isTerminal || recordingFetchedRef.current) return;
     recordingFetchedRef.current = true;
 
-    api.waitForRecording(sessionId).then((urls) => {
+    waitForRecording(sessionId).then((urls) => {
       if (urls.length) setRecordingUrls(urls);
     }).catch((err) => {
       console.error("Failed to fetch recording:", err);
@@ -146,7 +171,7 @@ export function SessionProvider({
 
   const stopTask = useCallback(async () => {
     try {
-      await api.stopTask(sessionId);
+      await stopTaskAction(sessionId);
     } catch (err) {
       console.error("Failed to stop:", err);
     }

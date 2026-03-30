@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listProfiles, listWorkspaces } from "@/lib/api";
+import { listProfiles, listWorkspaces } from "@/lib/actions";
 import type { Profile, WorkspaceView } from "@/lib/types";
 
 interface SettingsContextType {

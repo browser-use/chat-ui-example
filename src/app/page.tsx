@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/chat-input";
 import { SettingsBar } from "@/components/model-selector";
 import { useSettings } from "@/context/settings-context";
-import { createSession } from "@/lib/api";
+import { createSession } from "@/lib/actions";
 
 const SUGGESTIONS = [
   "Find the top 3 articles on Hacker News right now",

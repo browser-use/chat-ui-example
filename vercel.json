@@ -1,5 +1,5 @@
 {
   "env": {
-    "NEXT_PUBLIC_BROWSER_USE_API_KEY": "@browser-use-api-key"
+    "BROWSER_USE_API_KEY": "@browser-use-api-key"
   }
 }
