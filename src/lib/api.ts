@@ -25,7 +25,8 @@ export async function createSession(opts: {
 }
 
 export async function sendTask(sessionId: string, task: string) {
-  return v3.sessions.create({ sessionId, task, keepAlive: true });
+  // SDK auto-sets keepAlive when targeting an existing session
+  return v3.sessions.create({ sessionId, task });
 }
 
 export async function getSession(id: string) {

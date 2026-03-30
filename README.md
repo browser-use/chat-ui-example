@@ -89,11 +89,12 @@ A session gives you a persistent browser that the agent controls. You pick the m
 
 ```typescript
 const session = await client.sessions.create({
-  model: "bu-mini",    // or "bu-max" for complex tasks
-  keepAlive: true,     // keep browser open between tasks
+  model: "bu-mini",       // or "bu-max" for complex tasks
+  keepAlive: true,        // keep browser open between tasks
+  enableRecording: true,  // get MP4 recording after completion
 });
 // session.id         → use to send follow-up tasks
-// session.liveUrl    → embed in an iframe for live viewing
+// session.liveUrl    → embed in an iframe (available immediately)
 ```
 
 ### 4. Send tasks and poll for results
@@ -101,11 +102,10 @@ const session = await client.sessions.create({
 Send a natural-language task to the session, then poll for status and messages:
 
 ```typescript
-// Send a task
+// Send a task (SDK auto-sets keepAlive for existing sessions)
 await client.sessions.create({
   sessionId: session.id,
   task: "Find the top 3 articles on Hacker News",
-  keepAlive: true,
 });
 
 // Poll for messages
@@ -113,7 +113,7 @@ const { messages } = await client.sessions.messages(session.id, { limit: 100 });
 
 // Check session status
 const status = await client.sessions.get(session.id);
-// status.status → "running" | "completed" | "stopped" | "error" | "timed_out"
+// status.status → "running" | "idle" | "stopped" | "error" | "timed_out"
 ```
 
 ### 5. Stop a task
@@ -124,16 +124,12 @@ await client.sessions.stop(session.id, { strategy: "task" });
 
 ### 6. Get recording
 
-After a session completes, you can retrieve an MP4 recording of the browser session:
+After a session completes, retrieve the MP4 recording:
 
 ```typescript
-const { recordingUrls } = await client.sessions.waitForRecording(session.id);
-// recordingUrls → string[] of MP4 download URLs
+const urls = await client.sessions.waitForRecording(session.id);
+// urls → string[] of presigned MP4 download URLs
 ```
-
-| Method | Description |
-|--------|-------------|
-| `client.sessions.waitForRecording()` | Get recording MP4 URLs |
 
 In this app, all SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and polling is handled by TanStack Query in [`src/context/session-context.tsx`](src/context/session-context.tsx) with a 1-second refetch interval that automatically stops when the session reaches a terminal state.
 
