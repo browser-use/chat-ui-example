@@ -10,10 +10,10 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { client } from "@/lib/api";
 import * as api from "@/lib/api";
 import { convertMessages, groupIntoTurns } from "@/lib/message-converter";
-import type { UIMessage, ConversationTurn, SessionResponse } from "@/lib/types";
+import type { UIMessage, ConversationTurn, SessionResponse, MessageResponse } from "@/lib/types";
 
 interface SessionContextType {
   sessionId: string;
@@ -31,60 +31,65 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-const TERMINAL = new Set(["stopped", "completed", "error", "timed_out"]);
+// Session is done forever — no more tasks possible
+const TERMINAL = new Set(["stopped", "error", "timed_out"]);
 
 export function SessionProvider({
   sessionId,
+  initialLiveUrl,
+  initialTask,
   children,
 }: {
   sessionId: string;
+  initialLiveUrl?: string;
+  initialTask?: string;
   children: ReactNode;
 }) {
-  const [optimistic, setOptimistic] = useState<UIMessage[]>([]);
+  const [rawMessages, setRawMessages] = useState<MessageResponse[]>([]);
+  const [session, setSession] = useState<SessionResponse | null>(
+    initialLiveUrl ? { id: sessionId, liveUrl: initialLiveUrl, status: "created" } as SessionResponse : null,
+  );
   const [isSending, setIsSending] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [recordingUrls, setRecordingUrls] = useState<string[]>([]);
   const sendingRef = useRef(false);
   const recordingFetchedRef = useRef(false);
 
-  // Poll session
-  const { data: session } = useQuery({
-    queryKey: ["session", sessionId],
-    queryFn: () => api.getSession(sessionId),
-    refetchInterval: (query) => {
-      const s = query.state.data?.status;
-      return s && TERMINAL.has(s) ? false : 1000;
-    },
-  });
-
   const isTerminal = !!session && TERMINAL.has(session.status);
-  const isActive = !!session && !isTerminal;
   const isBusy = session?.status === "running";
 
-  // Poll messages
-  const { data: rawResponse, isLoading } = useQuery({
-    queryKey: ["messages", sessionId],
-    queryFn: () => api.getMessages(sessionId),
-    refetchInterval: isActive ? 1000 : false,
-  });
+  // Stream messages using for-await on client.run()
+  const streamTask = useCallback(
+    async (task: string) => {
+      setIsLoading(false);
+      const run = client.run(task, { sessionId });
 
-  // Convert messages (memoized to avoid re-running on every render)
-  const serverMessages = useMemo(
-    () => (rawResponse ? convertMessages(rawResponse.messages) : []),
-    [rawResponse],
+      // Update status to running immediately
+      setSession((prev) => prev ? { ...prev, status: "running" } : prev);
+
+      for await (const msg of run) {
+        setRawMessages((prev) => {
+          // Deduplicate by id
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+
+      // Iterator done — session reached terminal state
+      if (run.result) {
+        setSession(run.result as unknown as SessionResponse);
+      }
+    },
+    [sessionId],
   );
 
-  // Filter optimistic: remove if server has a matching user message
-  const allMessages = useMemo(() => {
-    const serverUserContents = new Set(
-      serverMessages.filter((m) => m.role === "user").map((m) => m.content)
-    );
-    const pendingOptimistic = optimistic.filter(
-      (m) => !serverUserContents.has(m.content)
-    );
-    return [...serverMessages, ...pendingOptimistic];
-  }, [serverMessages, optimistic]);
+  // Convert raw API messages → UI messages
+  const serverMessages = useMemo(
+    () => convertMessages(rawMessages),
+    [rawMessages],
+  );
 
-  const turns = useMemo(() => groupIntoTurns(allMessages), [allMessages]);
+  const turns = useMemo(() => groupIntoTurns(serverMessages), [serverMessages]);
 
   const sendMessage = useCallback(
     async (task: string) => {
@@ -92,26 +97,40 @@ export function SessionProvider({
       sendingRef.current = true;
       setIsSending(true);
 
-      const tempMsg: UIMessage = {
+      // Optimistic user message
+      const tempMsg: MessageResponse = {
         id: `opt-${Date.now()}`,
+        sessionId,
         role: "user",
-        content: task,
+        data: JSON.stringify({ content: task }),
+        summary: task,
         createdAt: new Date().toISOString(),
-      };
-      setOptimistic((prev) => [...prev, tempMsg]);
+      } as MessageResponse;
+      setRawMessages((prev) => [...prev, tempMsg]);
 
       try {
-        await api.sendTask(sessionId, task);
+        await streamTask(task);
       } catch (err) {
         console.error("Failed to send task:", err);
-        setOptimistic((prev) => prev.filter((m) => m.id !== tempMsg.id));
+        // Remove optimistic message on failure
+        setRawMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
       } finally {
         sendingRef.current = false;
         setIsSending(false);
       }
     },
-    [sessionId]
+    [sessionId, streamTask],
   );
+
+  // Auto-run initial task from URL params
+  const initialTaskRef = useRef(initialTask);
+  useEffect(() => {
+    if (!initialTaskRef.current) return;
+    const task = initialTaskRef.current;
+    initialTaskRef.current = undefined;
+    sendMessage(task);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch recording URLs when session reaches terminal state
   useEffect(() => {
@@ -119,9 +138,7 @@ export function SessionProvider({
     recordingFetchedRef.current = true;
 
     api.waitForRecording(sessionId).then((urls) => {
-      if (urls.length) {
-        setRecordingUrls(urls);
-      }
+      if (urls.length) setRecordingUrls(urls);
     }).catch((err) => {
       console.error("Failed to fetch recording:", err);
     });
@@ -139,8 +156,8 @@ export function SessionProvider({
     <SessionContext.Provider
       value={{
         sessionId,
-        session: session ?? null,
-        messages: allMessages,
+        session,
+        messages: serverMessages,
         turns,
         isLoading,
         isBusy,

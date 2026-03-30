@@ -5,6 +5,8 @@ const apiKey = process.env.NEXT_PUBLIC_BROWSER_USE_API_KEY ?? "";
 const v3 = new BrowserUseV3({ apiKey });
 const v2 = new BrowserUseV2({ apiKey });
 
+export const client = v3;
+
 // ── Sessions (v3) ──
 
 export async function createSession(opts: {
@@ -22,19 +24,6 @@ export async function createSession(opts: {
     ...(opts.proxyCountryCode && { proxyCountryCode: opts.proxyCountryCode as any }),
     ...(opts.enableRecording && { enableRecording: true }),
   });
-}
-
-export async function sendTask(sessionId: string, task: string) {
-  // SDK auto-sets keepAlive when targeting an existing session
-  return v3.sessions.create({ sessionId, task });
-}
-
-export async function getSession(id: string) {
-  return v3.sessions.get(id);
-}
-
-export async function getMessages(id: string, limit = 100) {
-  return v3.sessions.messages(id, { limit });
 }
 
 export async function stopTask(id: string) {

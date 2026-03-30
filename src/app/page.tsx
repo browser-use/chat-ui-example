@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/chat-input";
 import { SettingsBar } from "@/components/model-selector";
 import { useSettings } from "@/context/settings-context";
-import { createSession, sendTask } from "@/lib/api";
+import { createSession } from "@/lib/api";
 
 const SUGGESTIONS = [
   "Find the top 3 articles on Hacker News right now",
@@ -32,10 +32,8 @@ export default function HomePage() {
         ...(workspaceId && { workspaceId }),
         ...(proxyCountryCode && { proxyCountryCode }),
       });
-      router.push(`/session/${session.id}`);
-      sendTask(session.id, message).catch((err) =>
-        console.error("Failed to dispatch task:", err)
-      );
+      const liveUrl = session.liveUrl ? encodeURIComponent(session.liveUrl) : "";
+      router.push(`/session/${session.id}?liveUrl=${liveUrl}&task=${encodeURIComponent(message)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Failed to create session:", msg);

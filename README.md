@@ -97,23 +97,22 @@ const session = await client.sessions.create({
 // session.liveUrl    → embed in an iframe (available immediately)
 ```
 
-### 4. Send tasks and poll for results
+### 4. Stream messages with `for await`
 
-Send a natural-language task to the session, then poll for status and messages:
+Send a task and stream messages as the agent works — no manual polling needed:
 
 ```typescript
-// Send a task (SDK auto-sets keepAlive for existing sessions)
-await client.sessions.create({
+const run = client.run("Find the top 3 articles on Hacker News", {
   sessionId: session.id,
-  task: "Find the top 3 articles on Hacker News",
 });
 
-// Poll for messages
-const { messages } = await client.sessions.messages(session.id, { limit: 100 });
+for await (const msg of run) {
+  console.log(`[${msg.role}] ${msg.summary}`);
+}
 
-// Check session status
-const status = await client.sessions.get(session.id);
-// status.status → "running" | "idle" | "stopped" | "error" | "timed_out"
+// Iterator done — task completed
+console.log(run.result.output);
+console.log(run.result.status); // "idle" | "stopped" | "error" | "timed_out"
 ```
 
 ### 5. Stop a task
@@ -131,7 +130,7 @@ const urls = await client.sessions.waitForRecording(session.id);
 // urls → string[] of presigned MP4 download URLs
 ```
 
-In this app, all SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and polling is handled by TanStack Query in [`src/context/session-context.tsx`](src/context/session-context.tsx) with a 1-second refetch interval that automatically stops when the session reaches a terminal state.
+In this app, SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and message streaming is handled with `for await` on `client.run()` in [`src/context/session-context.tsx`](src/context/session-context.tsx).
 
 For full SDK documentation, see [docs.browser-use.com/cloud/introduction](https://docs.browser-use.com/cloud/introduction).
 
@@ -166,11 +165,11 @@ src/
 ### Data Flow
 
 1. User sends a task from the home page
-2. App creates a session via the Browser Use API and redirects to `/session/[id]`
-3. Session context polls for status and messages every second
-4. Messages are converted from the API format into conversation turns (user message + agent steps + final answer)
+2. App creates a session (gets `liveUrl` immediately) and redirects to `/session/[id]`
+3. Session context streams messages via `for await` on `client.run()`
+4. Messages are converted into conversation turns (user message + agent steps + final answer)
 5. The browser panel displays a live iframe of the agent's browser
-6. When the session completes, polling stops and the chat input is disabled
+6. When the task completes, the user can send follow-ups or download the recording
 
 ## Scripts
 
