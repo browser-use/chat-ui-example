@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listProfiles, listWorkspaces } from "@/lib/api";
+import { listProfiles, listWorkspaces } from "@/lib/actions";
 import type { Profile, WorkspaceView } from "@/lib/types";
 
 interface SettingsContextType {
@@ -68,8 +68,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     staleTime: 60_000,
   });
 
-  const profiles = profilesData?.items ?? [];
-  const workspaces = workspacesData?.items ?? [];
+  const profiles = profilesData ?? [];
+  const workspaces = workspacesData ?? [];
 
   // Auto-default to first profile if user hasn't explicitly chosen one
   useEffect(() => {

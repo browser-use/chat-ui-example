@@ -7,80 +7,115 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useEffect,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
-import * as api from "@/lib/api";
+import { stopTask as stopTaskAction, waitForRecording } from "@/lib/actions";
 import { convertMessages, groupIntoTurns } from "@/lib/message-converter";
-import type { UIMessage, ConversationTurn, SessionResponse } from "@/lib/types";
+import type { UIMessage, ConversationTurn, MessageResponse } from "@/lib/types";
+
+interface SessionState {
+  id: string;
+  liveUrl?: string | null;
+  status: string;
+  output?: unknown;
+}
 
 interface SessionContextType {
   sessionId: string;
-  session: SessionResponse | null;
+  session: SessionState | null;
   messages: UIMessage[];
   turns: ConversationTurn[];
   isLoading: boolean;
   isBusy: boolean;
   isTerminal: boolean;
   isSending: boolean;
+  recordingUrls: string[];
   sendMessage: (task: string) => Promise<void>;
   stopTask: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-const TERMINAL = new Set(["stopped", "completed", "error", "timed_out"]);
+const TERMINAL = new Set(["stopped", "error", "timed_out"]);
 
 export function SessionProvider({
   sessionId,
+  initialLiveUrl,
+  initialTask,
   children,
 }: {
   sessionId: string;
+  initialLiveUrl?: string;
+  initialTask?: string;
   children: ReactNode;
 }) {
-  const [optimistic, setOptimistic] = useState<UIMessage[]>([]);
+  const [rawMessages, setRawMessages] = useState<MessageResponse[]>([]);
+  const [session, setSession] = useState<SessionState | null>(
+    initialLiveUrl ? { id: sessionId, liveUrl: initialLiveUrl, status: "created" } : null,
+  );
   const [isSending, setIsSending] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!initialTask);
+  const [recordingUrls, setRecordingUrls] = useState<string[]>([]);
   const sendingRef = useRef(false);
-
-  // Poll session
-  const { data: session } = useQuery({
-    queryKey: ["session", sessionId],
-    queryFn: () => api.getSession(sessionId),
-    refetchInterval: (query) => {
-      const s = query.state.data?.status;
-      return s && TERMINAL.has(s) ? false : 1000;
-    },
-  });
+  const recordingFetchedRef = useRef(false);
 
   const isTerminal = !!session && TERMINAL.has(session.status);
-  const isActive = !!session && !isTerminal;
   const isBusy = session?.status === "running";
 
-  // Poll messages
-  const { data: rawResponse, isLoading } = useQuery({
-    queryKey: ["messages", sessionId],
-    queryFn: () => api.getMessages(sessionId),
-    refetchInterval: isActive ? 1000 : false,
-  });
+  // Stream messages from the SSE route handler
+  const streamTask = useCallback(
+    async (task: string) => {
+      setIsLoading(false);
+      setSession((prev) => prev ? { ...prev, status: "running" } : prev);
 
-  // Convert messages (memoized to avoid re-running on every render)
-  const serverMessages = useMemo(
-    () => (rawResponse ? convertMessages(rawResponse.messages) : []),
-    [rawResponse],
+      const res = await fetch(`/api/stream/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task }),
+      });
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = JSON.parse(line.slice(6));
+
+          if (json.__done) {
+            const { __done, ...result } = json;
+            setSession(result as SessionState);
+          } else if (json.__error) {
+            console.error("Stream error:", json.message);
+          } else {
+            const msg = json as MessageResponse;
+            setRawMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+          }
+        }
+      }
+    },
+    [sessionId],
   );
 
-  // Filter optimistic: remove if server has a matching user message
-  const allMessages = useMemo(() => {
-    const serverUserContents = new Set(
-      serverMessages.filter((m) => m.role === "user").map((m) => m.content)
-    );
-    const pendingOptimistic = optimistic.filter(
-      (m) => !serverUserContents.has(m.content)
-    );
-    return [...serverMessages, ...pendingOptimistic];
-  }, [serverMessages, optimistic]);
+  // Convert raw API messages → UI messages
+  const serverMessages = useMemo(
+    () => convertMessages(rawMessages),
+    [rawMessages],
+  );
 
-  const turns = useMemo(() => groupIntoTurns(allMessages), [allMessages]);
+  const turns = useMemo(() => groupIntoTurns(serverMessages), [serverMessages]);
 
   const sendMessage = useCallback(
     async (task: string) => {
@@ -88,30 +123,47 @@ export function SessionProvider({
       sendingRef.current = true;
       setIsSending(true);
 
-      const tempMsg: UIMessage = {
-        id: `opt-${Date.now()}`,
-        role: "user",
-        content: task,
-        createdAt: new Date().toISOString(),
-      };
-      setOptimistic((prev) => [...prev, tempMsg]);
-
       try {
-        await api.sendTask(sessionId, task);
+        // The stream already includes the user message — no optimistic insert needed
+        await streamTask(task);
       } catch (err) {
         console.error("Failed to send task:", err);
-        setOptimistic((prev) => prev.filter((m) => m.id !== tempMsg.id));
+        // Reset to idle so the user can retry — don't mark as terminal error
+        // since this could be a transient network issue, not a session failure
+        setSession((prev) => prev ? { ...prev, status: "idle" } : prev);
       } finally {
         sendingRef.current = false;
         setIsSending(false);
       }
     },
-    [sessionId]
+    [sessionId, streamTask],
   );
+
+  // Auto-run initial task from URL params
+  const initialTaskRef = useRef(initialTask);
+  useEffect(() => {
+    if (!initialTaskRef.current) return;
+    const task = initialTaskRef.current;
+    initialTaskRef.current = undefined;
+    sendMessage(task);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch recording URLs when session reaches terminal state
+  useEffect(() => {
+    if (!isTerminal || recordingFetchedRef.current) return;
+    recordingFetchedRef.current = true;
+
+    waitForRecording(sessionId).then((urls) => {
+      if (urls.length) setRecordingUrls(urls);
+    }).catch((err) => {
+      console.error("Failed to fetch recording:", err);
+    });
+  }, [isTerminal, sessionId]);
 
   const stopTask = useCallback(async () => {
     try {
-      await api.stopTask(sessionId);
+      await stopTaskAction(sessionId);
     } catch (err) {
       console.error("Failed to stop:", err);
     }
@@ -121,13 +173,14 @@ export function SessionProvider({
     <SessionContext.Provider
       value={{
         sessionId,
-        session: session ?? null,
-        messages: allMessages,
+        session,
+        messages: serverMessages,
         turns,
         isLoading,
         isBusy,
         isTerminal,
         isSending,
+        recordingUrls,
         sendMessage,
         stopTask,
       }}

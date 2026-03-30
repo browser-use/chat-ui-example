@@ -2,7 +2,7 @@
 
 A chat interface for [Browser Use](https://browser-use.com) that lets you give tasks to an AI agent that can browse the web in real time. Built with Next.js 15, React 19, and the Browser Use SDK.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbrowser-use%2Fchat-ui-example&env=NEXT_PUBLIC_BROWSER_USE_API_KEY&envDescription=Your%20Browser%20Use%20API%20key&envLink=https%3A%2F%2Fcloud.browser-use.com&project-name=browser-use-chat-ui&repository-name=browser-use-chat-ui)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbrowser-use%2Fchat-ui-example&env=BROWSER_USE_API_KEY&envDescription=Your%20Browser%20Use%20API%20key%20(server-only)&envLink=https%3A%2F%2Fcloud.browser-use.com&project-name=browser-use-chat-ui&repository-name=browser-use-chat-ui)
 
 ![Chat UI](public/chat-ui-preview.png)
 
@@ -31,7 +31,7 @@ cp .env.example .env.local
 Edit `.env.local` and add your API key:
 
 ```
-NEXT_PUBLIC_BROWSER_USE_API_KEY=your-api-key-here
+BROWSER_USE_API_KEY=your-api-key-here
 ```
 
 ### 4. Run
@@ -48,6 +48,7 @@ Open [http://localhost:3000](http://localhost:3000).
 2. The agent browses the web and reports back in real time
 3. Watch the agent work in the live browser panel (desktop only)
 4. Send follow-up messages to refine or continue the task
+5. When the session ends, download an MP4 recording of the browser session
 
 ### Settings
 
@@ -75,10 +76,11 @@ npm install browser-use-sdk
 ### 2. Initialize the client
 
 ```typescript
+// src/lib/api.ts — server-only, never imported in client components
 import { BrowserUse } from "browser-use-sdk/v3";
 
 const client = new BrowserUse({
-  apiKey: process.env.NEXT_PUBLIC_BROWSER_USE_API_KEY,
+  apiKey: process.env.BROWSER_USE_API_KEY,
 });
 ```
 
@@ -88,31 +90,30 @@ A session gives you a persistent browser that the agent controls. You pick the m
 
 ```typescript
 const session = await client.sessions.create({
-  model: "bu-mini",    // or "bu-max" for complex tasks
-  keepAlive: true,     // keep browser open between tasks
+  model: "bu-mini",       // or "bu-max" for complex tasks
+  keepAlive: true,        // keep browser open between tasks
+  enableRecording: true,  // get MP4 recording after completion
 });
 // session.id         → use to send follow-up tasks
-// session.liveUrl    → embed in an iframe for live viewing
+// session.liveUrl    → embed in an iframe (available immediately)
 ```
 
-### 4. Send tasks and poll for results
+### 4. Stream messages with `for await`
 
-Send a natural-language task to the session, then poll for status and messages:
+Send a task and stream messages as the agent works — no manual polling needed:
 
 ```typescript
-// Send a task
-await client.sessions.create({
+const run = client.run("Find the top 3 articles on Hacker News", {
   sessionId: session.id,
-  task: "Find the top 3 articles on Hacker News",
-  keepAlive: true,
 });
 
-// Poll for messages
-const { messages } = await client.sessions.messages(session.id, { limit: 100 });
+for await (const msg of run) {
+  console.log(`[${msg.role}] ${msg.summary}`);
+}
 
-// Check session status
-const status = await client.sessions.get(session.id);
-// status.status → "running" | "completed" | "stopped" | "error" | "timed_out"
+// Iterator done — task completed
+console.log(run.result.output);
+console.log(run.result.status); // "idle" | "stopped" | "error" | "timed_out"
 ```
 
 ### 5. Stop a task
@@ -121,7 +122,16 @@ const status = await client.sessions.get(session.id);
 await client.sessions.stop(session.id, { strategy: "task" });
 ```
 
-In this app, all SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and polling is handled by TanStack Query in [`src/context/session-context.tsx`](src/context/session-context.tsx) with a 1-second refetch interval that automatically stops when the session reaches a terminal state.
+### 6. Get recording
+
+After a session completes, retrieve the MP4 recording:
+
+```typescript
+const urls = await client.sessions.waitForRecording(session.id);
+// urls → string[] of presigned MP4 download URLs
+```
+
+In this app, SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and message streaming is handled with `for await` on `client.run()` in [`src/context/session-context.tsx`](src/context/session-context.tsx).
 
 For full SDK documentation, see [docs.browser-use.com/cloud/introduction](https://docs.browser-use.com/cloud/introduction).
 
@@ -156,11 +166,11 @@ src/
 ### Data Flow
 
 1. User sends a task from the home page
-2. App creates a session via the Browser Use API and redirects to `/session/[id]`
-3. Session context polls for status and messages every second
-4. Messages are converted from the API format into conversation turns (user message + agent steps + final answer)
+2. App creates a session (gets `liveUrl` immediately) and redirects to `/session/[id]`
+3. Session context streams messages via `for await` on `client.run()`
+4. Messages are converted into conversation turns (user message + agent steps + final answer)
 5. The browser panel displays a live iframe of the agent's browser
-6. When the session completes, polling stops and the chat input is disabled
+6. When the task completes, the user can send follow-ups or download the recording
 
 ## Scripts
 

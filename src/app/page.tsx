@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/chat-input";
 import { SettingsBar } from "@/components/model-selector";
 import { useSettings } from "@/context/settings-context";
-import { createSession, sendTask } from "@/lib/api";
+import { createSession } from "@/lib/actions";
 
 const SUGGESTIONS = [
   "Find the top 3 articles on Hacker News right now",
@@ -27,14 +27,15 @@ export default function HomePage() {
     try {
       const session = await createSession({
         model,
+        enableRecording: true,
         ...(profileId && { profileId }),
         ...(workspaceId && { workspaceId }),
         ...(proxyCountryCode && { proxyCountryCode }),
       });
-      router.push(`/session/${session.id}`);
-      sendTask(session.id, message).catch((err) =>
-        console.error("Failed to dispatch task:", err)
-      );
+      // Store task in sessionStorage to avoid exposing it in the URL
+      sessionStorage.setItem(`task-${session.id}`, message);
+      const liveUrl = session.liveUrl ? encodeURIComponent(session.liveUrl) : "";
+      router.push(`/session/${session.id}?liveUrl=${liveUrl}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Failed to create session:", msg);
