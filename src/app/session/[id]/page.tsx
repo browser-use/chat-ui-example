@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Download } from "lucide-react";
 import { SessionProvider, useSession } from "@/context/session-context";
 import { ChatInput } from "@/components/chat-input";
@@ -94,7 +94,15 @@ export default function SessionPageWrapper() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const liveUrl = searchParams.get("liveUrl") ?? undefined;
-  const initialTask = searchParams.get("task") ?? undefined;
+
+  // Read initial task from sessionStorage (not URL) to avoid exposing prompts
+  const [initialTask] = useState(() => {
+    const key = `task-${params.id}`;
+    const task = sessionStorage.getItem(key) ?? undefined;
+    if (task) sessionStorage.removeItem(key);
+    return task;
+  });
+
   return (
     <SessionProvider sessionId={params.id} initialLiveUrl={liveUrl} initialTask={initialTask}>
       <SessionPage />

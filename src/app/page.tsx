@@ -32,8 +32,10 @@ export default function HomePage() {
         ...(workspaceId && { workspaceId }),
         ...(proxyCountryCode && { proxyCountryCode }),
       });
+      // Store task in sessionStorage to avoid exposing it in the URL
+      sessionStorage.setItem(`task-${session.id}`, message);
       const liveUrl = session.liveUrl ? encodeURIComponent(session.liveUrl) : "";
-      router.push(`/session/${session.id}?liveUrl=${liveUrl}&task=${encodeURIComponent(message)}`);
+      router.push(`/session/${session.id}?liveUrl=${liveUrl}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Failed to create session:", msg);

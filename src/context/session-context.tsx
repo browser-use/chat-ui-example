@@ -55,7 +55,7 @@ export function SessionProvider({
     initialLiveUrl ? { id: sessionId, liveUrl: initialLiveUrl, status: "created" } : null,
   );
   const [isSending, setIsSending] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!initialTask);
   const [recordingUrls, setRecordingUrls] = useState<string[]>([]);
   const sendingRef = useRef(false);
   const recordingFetchedRef = useRef(false);
@@ -123,22 +123,13 @@ export function SessionProvider({
       sendingRef.current = true;
       setIsSending(true);
 
-      // Optimistic user message
-      const tempMsg = {
-        id: `opt-${Date.now()}`,
-        sessionId,
-        role: "user",
-        data: JSON.stringify({ content: task }),
-        summary: task,
-        createdAt: new Date().toISOString(),
-      } as MessageResponse;
-      setRawMessages((prev) => [...prev, tempMsg]);
-
       try {
+        // The stream already includes the user message — no optimistic insert needed
         await streamTask(task);
       } catch (err) {
         console.error("Failed to send task:", err);
-        setRawMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+        // Reset status so the UI doesn't stay stuck on "running"
+        setSession((prev) => prev ? { ...prev, status: "error" } : prev);
       } finally {
         sendingRef.current = false;
         setIsSending(false);
