@@ -128,8 +128,9 @@ export function SessionProvider({
         await streamTask(task);
       } catch (err) {
         console.error("Failed to send task:", err);
-        // Reset status so the UI doesn't stay stuck on "running"
-        setSession((prev) => prev ? { ...prev, status: "error" } : prev);
+        // Reset to idle so the user can retry — don't mark as terminal error
+        // since this could be a transient network issue, not a session failure
+        setSession((prev) => prev ? { ...prev, status: "idle" } : prev);
       } finally {
         sendingRef.current = false;
         setIsSending(false);

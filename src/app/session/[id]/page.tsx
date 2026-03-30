@@ -97,6 +97,7 @@ export default function SessionPageWrapper() {
 
   // Read initial task from sessionStorage (not URL) to avoid exposing prompts
   const [initialTask] = useState(() => {
+    if (typeof window === "undefined") return undefined;
     const key = `task-${params.id}`;
     const task = sessionStorage.getItem(key) ?? undefined;
     if (task) sessionStorage.removeItem(key);
