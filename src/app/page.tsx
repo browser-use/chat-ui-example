@@ -27,6 +27,7 @@ export default function HomePage() {
     try {
       const session = await createSession({
         model,
+        enableRecording: true,
         ...(profileId && { profileId }),
         ...(workspaceId && { workspaceId }),
         ...(proxyCountryCode && { proxyCountryCode }),

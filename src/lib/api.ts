@@ -12,6 +12,7 @@ export async function createSession(opts: {
   profileId?: string;
   workspaceId?: string;
   proxyCountryCode?: string;
+  enableRecording?: boolean;
 }) {
   return v3.sessions.create({
     model: opts.model as "bu-mini" | "bu-max",
@@ -19,6 +20,7 @@ export async function createSession(opts: {
     ...(opts.profileId && { profileId: opts.profileId }),
     ...(opts.workspaceId && { workspaceId: opts.workspaceId }),
     ...(opts.proxyCountryCode && { proxyCountryCode: opts.proxyCountryCode as any }),
+    ...(opts.enableRecording && { enableRecording: true }),
   });
 }
 
@@ -38,7 +40,11 @@ export async function stopTask(id: string) {
   await v3.sessions.stop(id, { strategy: "task" });
 }
 
-// ── Profiles (v2 — not on v3 client) ──
+export async function waitForRecording(id: string) {
+  return v3.sessions.waitForRecording(id);
+}
+
+// ── Profiles (v2 — profiles endpoint exists in v3 OpenAPI but not yet in the SDK client) ──
 
 export async function listProfiles() {
   return v2.profiles.list({ pageSize: 100 });

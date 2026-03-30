@@ -48,6 +48,7 @@ Open [http://localhost:3000](http://localhost:3000).
 2. The agent browses the web and reports back in real time
 3. Watch the agent work in the live browser panel (desktop only)
 4. Send follow-up messages to refine or continue the task
+5. When the session ends, download an MP4 recording of the browser session
 
 ### Settings
 
@@ -120,6 +121,19 @@ const status = await client.sessions.get(session.id);
 ```typescript
 await client.sessions.stop(session.id, { strategy: "task" });
 ```
+
+### 6. Get recording
+
+After a session completes, you can retrieve an MP4 recording of the browser session:
+
+```typescript
+const { recordingUrls } = await client.sessions.waitForRecording(session.id);
+// recordingUrls → string[] of MP4 download URLs
+```
+
+| Method | Description |
+|--------|-------------|
+| `client.sessions.waitForRecording()` | Get recording MP4 URLs |
 
 In this app, all SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and polling is handled by TanStack Query in [`src/context/session-context.tsx`](src/context/session-context.tsx) with a 1-second refetch interval that automatically stops when the session reaches a terminal state.
 

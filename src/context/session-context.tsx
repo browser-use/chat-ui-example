@@ -7,6 +7,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useEffect,
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ interface SessionContextType {
   isBusy: boolean;
   isTerminal: boolean;
   isSending: boolean;
+  recordingUrls: string[];
   sendMessage: (task: string) => Promise<void>;
   stopTask: () => Promise<void>;
 }
@@ -40,7 +42,9 @@ export function SessionProvider({
 }) {
   const [optimistic, setOptimistic] = useState<UIMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [recordingUrls, setRecordingUrls] = useState<string[]>([]);
   const sendingRef = useRef(false);
+  const recordingFetchedRef = useRef(false);
 
   // Poll session
   const { data: session } = useQuery({
@@ -109,6 +113,20 @@ export function SessionProvider({
     [sessionId]
   );
 
+  // Fetch recording URLs when session reaches terminal state
+  useEffect(() => {
+    if (!isTerminal || recordingFetchedRef.current) return;
+    recordingFetchedRef.current = true;
+
+    api.waitForRecording(sessionId).then((urls) => {
+      if (urls.length) {
+        setRecordingUrls(urls);
+      }
+    }).catch((err) => {
+      console.error("Failed to fetch recording:", err);
+    });
+  }, [isTerminal, sessionId]);
+
   const stopTask = useCallback(async () => {
     try {
       await api.stopTask(sessionId);
@@ -128,6 +146,7 @@ export function SessionProvider({
         isBusy,
         isTerminal,
         isSending,
+        recordingUrls,
         sendMessage,
         stopTask,
       }}
