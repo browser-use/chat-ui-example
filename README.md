@@ -135,10 +135,6 @@ In this app, SDK calls live in [`src/lib/api.ts`](src/lib/api.ts), and message s
 
 For full SDK documentation, see [docs.browser-use.com/cloud/introduction](https://docs.browser-use.com/cloud/introduction).
 
-## Related Example
-
-Need an always-on Browser Use Cloud agent outside a web app? [Browser Use Box](https://github.com/browser-use/bux) runs on your own Linux box, keeps a Browser Use profile online, and lets you control the agent from Telegram. [Watch the demo](https://www.tiktok.com/@browser_use/video/7639824093721758989).
-
 ## Architecture
 
 ```
