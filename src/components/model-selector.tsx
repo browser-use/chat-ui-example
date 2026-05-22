@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { Cpu, User, HardDrive, Globe, Check } from "lucide-react";
 import { useSettings } from "@/context/settings-context";
 import { COUNTRIES, POPULAR_CODES, COUNTRY_BY_CODE } from "@/lib/countries";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const MODELS = [
   { value: "bu-mini", label: "BU Mini" },
@@ -70,13 +71,13 @@ function IconDropdown({
         className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors ${
           isActive
             ? `${colors.bg} ${colors.text} border-transparent`
-            : "bg-transparent hover:bg-zinc-800 text-zinc-500 border-zinc-700"
+            : "bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700"
         }`}
       >
         {icon}
       </button>
       {open && (
-        <div className="absolute bottom-full mb-1 right-0 w-[200px] bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 flex flex-col max-h-[320px] overflow-y-auto">
+        <div className="absolute bottom-full mb-1 right-0 w-[200px] bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-xl z-50 flex flex-col max-h-[320px] overflow-y-auto">
           {children}
         </div>
       )}
@@ -99,13 +100,13 @@ function DropdownRow({
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-800 flex items-center gap-2 ${
-        selected ? "text-white font-medium" : "text-zinc-400"
+      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 ${
+        selected ? "text-zinc-900 dark:text-white font-medium" : "text-zinc-500 dark:text-zinc-400"
       }`}
     >
       {icon && <span className="w-4 flex-shrink-0">{icon}</span>}
       <span className="flex-1 truncate">{label}</span>
-      {selected && <Check size={12} className="text-zinc-400 flex-shrink-0" />}
+      {selected && <Check size={12} className="text-zinc-500 dark:text-zinc-400 flex-shrink-0" />}
     </button>
   );
 }
@@ -165,13 +166,13 @@ function ProxyDropdown({
       onToggle={onToggle}
       onClose={onClose}
     >
-      <div className="p-2 border-b border-zinc-800">
+      <div className="p-2 border-b border-zinc-200 dark:border-zinc-800">
         <input
           ref={inputRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search countries…"
-          className="w-full bg-zinc-800 text-zinc-200 text-xs rounded px-2 py-1.5 outline-none placeholder-zinc-500"
+          placeholder="Search countries\u2026"
+          className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded px-2 py-1.5 outline-none placeholder-zinc-400 dark:placeholder-zinc-500"
         />
       </div>
       <div className="overflow-y-auto flex-1">
@@ -193,7 +194,7 @@ function ProxyDropdown({
                 key={c.code}
                 label={c.name}
                 icon={
-                  <span className="text-[10px] text-zinc-600 uppercase">
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600 uppercase">
                     {c.code}
                   </span>
                 }
@@ -212,7 +213,7 @@ function ProxyDropdown({
                 key={c.code}
                 label={c.name}
                 icon={
-                  <span className="text-[10px] text-zinc-600 uppercase">
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600 uppercase">
                     {c.code}
                   </span>
                 }
@@ -220,7 +221,7 @@ function ProxyDropdown({
                 onSelect={() => selectCountry(c.code)}
               />
             ))}
-            <div className="mx-2 my-1 h-px bg-zinc-800" />
+            <div className="mx-2 my-1 h-px bg-zinc-200 dark:bg-zinc-800" />
             <div className="px-3 pt-1 pb-1 text-[10px] text-zinc-500 uppercase tracking-wider">
               All countries
             </div>
@@ -229,7 +230,7 @@ function ProxyDropdown({
                 key={c.code}
                 label={c.name}
                 icon={
-                  <span className="text-[10px] text-zinc-600 uppercase">
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600 uppercase">
                     {c.code}
                   </span>
                 }
@@ -272,6 +273,9 @@ export function SettingsBar() {
 
   return (
     <div className="flex items-center gap-1">
+      {/* Theme toggle */}
+      <ThemeToggle />
+
       {/* Model */}
       <IconDropdown
         icon={<Cpu size={16} />}

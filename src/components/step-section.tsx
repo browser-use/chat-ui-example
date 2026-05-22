@@ -32,16 +32,16 @@ export function StepSection({ step }: { step: TaskStep }) {
                   <X className="w-3 h-3 text-red-500" strokeWidth={2.5} />
                 </div>
               ) : (
-                <div className="w-[18px] h-[18px] rounded-full border border-zinc-700" />
+                <div className="w-[18px] h-[18px] rounded-full border border-zinc-300 dark:border-zinc-700" />
               )}
             </div>
-            <span className="text-[14px] text-zinc-200 font-medium">
+            <span className="text-[14px] text-zinc-800 dark:text-zinc-200 font-medium">
               {isError ? "Stopped" : step.title}
             </span>
           </>
         )}
         <ChevronUp
-          className={`w-4 h-4 ml-auto text-zinc-600 group-hover:text-zinc-400 transition-transform ${
+          className={`w-4 h-4 ml-auto text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-transform ${
             expanded ? "rotate-0" : "rotate-180"
           }`}
         />

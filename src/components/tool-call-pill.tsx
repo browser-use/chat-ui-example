@@ -9,7 +9,7 @@ import {
 import type { UIToolCall } from "@/lib/types";
 
 function getIcon(type: string): ReactNode {
-  const cls = "w-2.5 h-2.5 text-zinc-500";
+  const cls = "w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500";
   switch (type) {
     case "browse":     return <Compass className={cls} />;
     case "click":
@@ -40,25 +40,25 @@ export function ToolCallPill({ toolCall }: { toolCall: UIToolCall }) {
     <div className="flex items-start my-1">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="inline-flex items-center gap-2 bg-zinc-800 pl-2 pr-3 py-1.5 rounded-md text-[13px] hover:bg-zinc-700/80 transition-colors"
+        className="inline-flex items-center gap-2 bg-zinc-200 dark:bg-zinc-800 pl-2 pr-3 py-1.5 rounded-md text-[13px] hover:bg-zinc-300 dark:hover:bg-zinc-700/80 transition-colors"
       >
-        <div className="w-[18px] h-[18px] rounded-full border border-zinc-700 flex items-center justify-center shrink-0">
+        <div className="w-[18px] h-[18px] rounded-full border border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0">
           {isRunning ? (
-            <Loader2 className="w-2.5 h-2.5 text-zinc-500 animate-spin" />
+            <Loader2 className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 animate-spin" />
           ) : (
             getIcon(toolCall.type)
           )}
         </div>
-        <span className="text-zinc-200 font-medium">{toolCall.displayName}</span>
+        <span className="text-zinc-800 dark:text-zinc-200 font-medium">{toolCall.displayName}</span>
         {toolCall.displayValue && (
-          <span className="text-zinc-500 font-mono text-[12px] truncate max-w-[350px]">
+          <span className="text-zinc-500 dark:text-zinc-500 font-mono text-[12px] truncate max-w-[350px]">
             {toolCall.displayValue}
           </span>
         )}
       </button>
 
       {expanded && toolCall.result && (
-        <pre className="mt-1 ml-7 p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg text-[12px] text-zinc-400 overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre-wrap">
+        <pre className="mt-1 ml-7 p-3 bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-300 dark:border-zinc-800 rounded-lg text-[12px] text-zinc-600 dark:text-zinc-400 overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre-wrap">
           {toolCall.result.slice(0, 2000)}
         </pre>
       )}
